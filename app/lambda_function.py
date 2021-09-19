@@ -51,8 +51,34 @@ class Handler:
         # if they dont exist, add them to the database
 
         # check dateservice, whatever that does
-        # check the messages in the db to see what the message reason was
-        # if there's none, insert one
+        # check the messages in the db to see what the message reason was (type 0, reason 10)
+        # if there's none, add to messages_no_send
+        # else, add to error list with ("exists")
+
+        # check the patient isnt old enough
+        # check if a message exists on the patient with type 0, reason 3,,
+        # if theres none, add to messages_no_send, else add to errors
+
+        # check if the patient is expired
+        # if so, check for message (type 0, reason 4)
+        # add to messages_no_send if doesnt exist, 
+        # if there is a message, add to errors
+
+        # check if the patient opted out
+        # if so, check for message (type 0, reason 8)
+        # add to messages_no_send if doesnt exist, 
+        # if there is a message, add to errors
+
+        # check if plan is 1 or 3
+            # get_phone_db for record
+
+            # check landline to see if you can text
+            # check the message db for type 0 reason 7
+
+            # check message db for type2
+            #
+
+
         pass
 
     def process_history(self):

@@ -34,7 +34,6 @@
 - pydantic
 - pandas
 
-# ToDo
+# Notes:
 
-- setup call in next 2 weeks to go over progress
-- build out schedule/timeline
+### First Progress Report:
