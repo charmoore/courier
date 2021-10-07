@@ -14,7 +14,7 @@ class Reasons(IntEnum):
     ARCHIVE = 10
 
 
-class MessageType(IntEnum):
+class MessageTypes(IntEnum):
     NULL = 0
     PENDING = 1
     INITIAL_SMS = 2

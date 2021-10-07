@@ -3,23 +3,24 @@ from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from config import settings
-from utils.logging import Logger
+from app.config import settings
+from app.utils.logging import Logger
+from app.utils.exceptions import DBConnectionError
 
 logger = Logger("base.db")
 
-engine=create_engine(settings.DATABASE_URI, echo=True)
+engine = create_engine(settings.DATABASE_URI, echo=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def get_db() -> Generator:
     "Yield the database session as needed"
-    try: 
+    try:
         db = SessionLocal()
+        logger.print_and_log("DB Session connected...")
         yield db
     except Exception as e:
-        logger.print_and_log("Could not connect to database.", log_level="error")
-    finally: 
-        logger.print_and_log("Closing db connection...")
+        raise DBConnectionError(e.message)
+    finally:
+        logger.print_and_log("Closing DB connection...")
         db.close()
-

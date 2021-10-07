@@ -2,8 +2,9 @@ from typing import List
 
 from sqlmodel import SQLModel
 
+
 class Runner(SQLModel):
-    state_error : bool = False
+    alive: bool = True
     records = []
     records_error = []
     patients = []
@@ -13,9 +14,9 @@ class Runner(SQLModel):
     messages_no_send = []
     messages_errors = []
     reports = []
-    count_messages : int = 0
-    skip_age : int  = 0
-    skip_expired : int  = 0
-    skip_out : int = 0
-    skip_invalid : int = 0
-    skip_old : int  = 0
+    count_messages: int = 0
+    skip_age: int = 0
+    skip_expired: int = 0
+    skip_out: int = 0
+    skip_invalid: int = 0
+    skip_old: int = 0

@@ -1,7 +1,9 @@
+from typing import Optional
+
 from sqlmodel import SQLModel, Field
 
 
 class Plans(SQLModel, table=True):
-    PlanID: int = Field(primary_key=True, default=None, max_length=2)
+    PlanID: int = Field(primary_key=True, default=None)
     PlanName: str = Field(max_length=50)
-    Description: str = Field(defualt=None, max_length=255)
+    Description: Optional[str] = Field(default=None, max_length=255)

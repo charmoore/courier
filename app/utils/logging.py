@@ -3,9 +3,11 @@ import logging
 
 from app.config import settings
 
+
 class BaseLogger:
     def __init__(
-        self, log_folder_path: Path, log_name="base", log_format=None, level="INFO"):
+        self, log_folder_path: Path, log_name="base", log_format=None, level="INFO"
+    ):
         if not log_folder_path.exists():
             log_folder_path.mkdir(parents=True)
 
@@ -34,14 +36,15 @@ class BaseLogger:
     def print_and_log(self, message, log_level="info") -> None:
         self.log(message, True, log_level)
 
-class Logger():
-    def __init__(self, log_name: str =None):
+
+class Logger:
+    def __init__(self, log_name: str = None):
         if log_name is None:
-           self.log_name = "base"
+            self.log_name = "base"
         else:
             self.log_name = log_name
 
-        self.default_log_path =  Path(__file__).resolve().parent
+        self.default_log_path = Path(__file__).resolve().parent
 
         logging.getLogger().level = logging.ERROR
 
@@ -50,17 +53,21 @@ class Logger():
         else:
             logging.getLogger("base").level = logging.INFO
 
-    def start_log(self, log_path: str =None) -> None:
+    def start_log(self, log_path: str = None) -> None:
         if log_path is None:
             lib_log_path = "base"
-        else: 
+        else:
             lib_log_path = log_path
-        
-        self.logger = BaseLogger(lib_log_path / "log", log_name = "base", format = settings.LOGGING_FORMAT,)
+
+        self.logger = BaseLogger(
+            lib_log_path / "log",
+            log_name="base",
+            format=settings.LOGGING_FORMAT,
+        )
         self.logger.service_log = logging.getLogger(self.log_name)
 
-    def print_and_log(self, message: str, log_level: str = "info")->None:
+    def print_and_log(self, message: str, log_level: str = "info") -> None:
         if not hasattr(self, "logger"):
             self.start_log()
-        
+
         self.logger.print_and_log(message, log_level)
