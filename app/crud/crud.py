@@ -16,7 +16,6 @@ from app.utils.enums import Reasons, MessageTypes
 class CRUDLocations(CRUDBase[Locations]):
     def get(self, db: Session, id: Any) -> Optional[Locations]:
         return db.query(self.model).filter(self.model.LocationID == id).first()
-
     def exists(self, db: Session, id: Any) -> bool:
         new_id = (
             id.partition(" ")[0].replace("(", "").replace(")", "") if "(" in id else id

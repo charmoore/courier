@@ -1,3 +1,4 @@
+from app.config import settings
 # Boto3 client connection exception
 
 
@@ -31,3 +32,11 @@ class StateError(Error):
 class DBConnectionError(Error):
     def __init__(self, message):
         self.message = message
+
+class PracticeError(Error):
+    def __init__(self, practice):
+        self.message=f"Expected {settings.practice} but got {practice}."
+
+class FileExtensionError(Error):
+    def __init__(self, extension):
+        self.message = f"Extension {extension} not in {','.join(settings.formats)}"
