@@ -1,10 +1,14 @@
+from typing import Optional
 from sqlmodel import SQLModel, Field
 
 
 class Locations(SQLModel, table=True):
-    LocationID: int = Field(default=None, primary_key=True, max_digits=4)
-    LocationName: str = Field(max_length=255)
-    Address: str = Field(default=None, max_length=255)
-    City: str = Field(default=None, max_length=100)
-    State: str = Field(default=None, max_length=50)
-    Country: str = Field(default=None, max_length=50)
+    LocationID: Optional[int] = Field(
+        default=None,
+        primary_key=True,
+    )
+    LocationName: Optional[str] = Field(max_length=255)
+    Address: Optional[str] = Field(default=None, max_length=255)
+    City: Optional[str] = Field(default=None, max_length=100)
+    State: Optional[str] = Field(default=None, max_length=50)
+    Country: Optional[str] = Field(default=None, max_length=50)

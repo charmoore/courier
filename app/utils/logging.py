@@ -62,7 +62,7 @@ class Logger:
         self.logger = BaseLogger(
             lib_log_path / "log",
             log_name="base",
-            format=settings.LOGGING_FORMAT,
+            log_format=settings.LOGGING_FORMAT,
         )
         self.logger.service_log = logging.getLogger(self.log_name)
 

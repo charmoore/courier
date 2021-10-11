@@ -33,6 +33,10 @@ def check_date_service(date: datetime, history: bool = False) -> bool:
     return False
 
 
-def convert_sql_datetime(date_string: str, time: bool = False) -> datetime:
-    # Todo: Is this necessary?
-    pass
+def convert_sql_datetime(date_string: str, time: bool = False) -> str:
+    if time:
+		# change this:
+        time = datetime.strftime(datetime.strptime(date_string, '%m/%d/%Y'),format=DATE_FORMAT)
+        return time
+    date = datetime.strftime(datetime.strptime(date_string,format=DATE_FORMAT),format=DATE_FORMAT)
+    return date

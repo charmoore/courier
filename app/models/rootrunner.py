@@ -2,14 +2,16 @@ from typing import List
 
 from sqlmodel import SQLModel
 
+from app.models import Patients, Visits, Locations
+
 
 class RootRunner(SQLModel):
     alive: bool = True
     records = []
     records_error = []
-    patients = []
-    visits = []
-    locations = []
+    patients: List[Patients] = []
+    visits: List[Visits] = []
+    locations: List[Locations] = []
     messages = []
     messages_no_send = []
     messages_errors = []

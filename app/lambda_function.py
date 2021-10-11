@@ -9,9 +9,16 @@ from app.db import get_db
 from app.utils.logging import Logger
 from app.models.runner import build as Runner
 from app.crud import crud
-from app.models import Patients
+from app.models import Patients, Visits, Locations
 from app.models.rootrunner import RootRunner
-from app.utils.exceptions import StateError, GenericError, FileExtensionError, PracticeError
+from app.utils.utils import convert_sql_datetime
+from app.utils.exceptions import (
+    StateError,
+    GenericError,
+    FileExtensionError,
+    PracticeError,
+    ProviderError,
+)
 
 logger = Logger("base.lambda_function")
 
@@ -34,7 +41,6 @@ class Handler:
     def add_error(self, rec, error):
         self.error.append({"rec": rec, "error": error})
 
-
     def __init__(self, event):
         for rec in event["Records"]:
             if rec["s3"]["object"]["key"].startswith("input/"):
@@ -55,46 +61,118 @@ class Handler:
                 with settings.s3.open(runner.bucket, runner.file_in, "r") as f:
                     df = pd.read_csv(f)
                 for index, row in df.iterrows():
-                    if settings.practice not in row['PracticeName']:
-                        raise PracticeError(practice=row['PracticeName'])
+                    if settings.practice not in row["PracticeName"]:
+                        raise PracticeError(practice=row["PracticeName"])
                     root_runner.records.append(row)
-                    if not row['SurveyRequestID'] or not row['PatientID'] or not row['PatientName'] or not row['ServicingProvider'] or not row['DateOfService'] or not row['PostDate'] or not row['LocationName']:
-                        raise GenericError(f"A critical field was blank, skipping row {index}")
-                    # ! Check all three of these
-                    if not crud.patients.exists(db=Depends(get_db), id=row['PatientID']):
-                        root_runner.patients.append(row)
-                    if not crud.visits.exists(db=Depends(get_db), id=row['SurveyRequestID']):
-                        pass
-                    if not crud.locations.get (db=Depends(get_db), id=row['LocationName']):
-                        pass
-                
-                if root_runner.patients:
-                    # Insert patients
-                    pass
-                if root_runner.locations:
-                    # insert locations
-                    pass
-                if root_runner.visits:
-                    # insert visits
-                    pass
+                    if (
+                        not row["SurveyRequestID"]
+                        or not row["PatientID"]
+                        or not row["PatientName"]
+                        or not row["ServicingProvider"]
+                        or not row["DateOfService"]
+                        or not row["PostDate"]
+                        or not row["LocationName"]
+                    ):
+                        raise GenericError(
+                            f"A critical field was blank, skipping row {index}"
+                        )
+                    with get_db() as db:
+                        if not crud.patients.exists(db=db, id=row["PatientID"]):
+                            patient = Patients()
+                            root_runner.patients.append(
+                                patient
+                            )  # append as list of models
+                        if not crud.visits.exists(db=db, id=row["SurveyRequestID"]):
+                            date_of_service = (
+                                convert_sql_datetime(row["DateOfService"])
+                                if not row["DateOfService"]
+                                else None
+                            )
+                            post_date = (
+                                convert_sql_datetime(row["PostDate"])
+                                if row["PostDate"]
+                                else None
+                            )
+                            location_id = (
+                                row["LocationName"]
+                                .partition(" ")[0]
+                                .replace("(", "")
+                                .replace(")", "")
+                            )
+                            provider = crud.providers.get_by_names(
+                                db=db, name=row["ServicingProvider"]
+                            )
+                            if not provider:
+                                raise ProviderError(row["ServicingProvider"])
+                            visit = Visits(
+                                VisitID=row["SurveyRequestID"],
+                                PatientID=row["PatientID"],
+                                LocationID=location_id,
+                                ProviderID=provider.ProviderID,
+                                DateOFService=date_of_service,
+                                DatePosted=post_date,
+                                VisitNumber=row["VisitNumber"],
+                            )
+                            root_runner.visits.append(visit)  # append as list of models
+                        if not crud.locations.exists(db=db, id=row["LocationName"]):
+                            if "(" in row["LocationName"]:
+                                locationID = (
+                                    row["LocationName"]
+                                    .partition(" ")[0]
+                                    .replace("(", "")
+                                    .replace(")", "")
+                                )
+                                location = Locations(
+                                    LocationID=locationID,
+                                )
+                            else:
+                                location = Locations(LocationName=row["LocationName"])
+                            root_runner.locations.append(
+                                location
+                            )  # append as list of models
+                        # Now that they're sorted, insert all of them
+                        if root_runner.patients:
+                            logger.print_and_log(
+                                f"Inserting {len(root_runner.patients)} patients"
+                            )
+                            crud.patients.create_many(
+                                db=db, objs=root_runner.patients
+                            )  # stub
+                        if root_runner.locations:
+                            logger.print_and_log(
+                                f"Inserting {len(root_runner.locations)} locations"
+                            )
+                            crud.locations.create_many(
+                                db=db, objs=root_runner.locations
+                            )  # stub
+                        if root_runner.visits:
+                            logger.print_and_log(
+                                f"Inserting {len(root_runner.visits)} visits"
+                            )
+                            crud.visits.create_many(
+                                db=db, objs=root_runner.visits
+                            )  # stub
                 # ! next: line 654
 
             except FileExtensionError as e:
                 # add to error dict
-                self.add_error(rec=rec,error=e)
-                file=f"s3://{runner.bucket}/{runner.file_in}"
-                destination=f"s3://{runner.bucket}/error/{runner.file_error}"
-                logger.print_and_log(f"Due to error, moving object {file} to {destination}")
-                settings.s3.move(object = file, destination=destination)
+                self.add_error(rec=rec, error=e)
+                file = f"s3://{runner.bucket}/{runner.file_in}"
+                destination = f"s3://{runner.bucket}/error/{runner.file_error}"
+                logger.print_and_log(
+                    f"Due to error, moving object {file} to {destination}"
+                )
+                settings.s3.move(object=file, destination=destination)
             except PracticeError as e:
                 self.add_error(rec=rec, error=e)
-                file=f"{runner.bucket}/{runner.file_in}"
-                destination=f"{runner.bucket}/error/{runner.file_error}"
-                logger.print_and_log(f"Due to error, moving object {file} to {destination}")
-                settings.s3.move(object = file, destination=destination)
+                file = f"{runner.bucket}/{runner.file_in}"
+                destination = f"{runner.bucket}/error/{runner.file_error}"
+                logger.print_and_log(
+                    f"Due to error, moving object {file} to {destination}"
+                )
+                settings.s3.move(object=file, destination=destination)
             except GenericError as e:
                 self.add_error(rec=rec, error=e)
-
 
         # * a lot of the db work can genuinely be wrapped in a try-catch-finally
 

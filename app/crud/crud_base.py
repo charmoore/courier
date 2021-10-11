@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar, Type, Any, Optional
+from typing import Generic, TypeVar, Type, Any, Optional, List
 
 from sqlalchemy.orm import Session
 from sqlmodel import SQLModel
@@ -25,6 +25,12 @@ class CRUDBase(Generic[ModelType]):
             return db_obj
         except Exception as e:
             print(e)
+
+    def create_many(self, db: Session, objs: List[ModelType]) -> List[ModelType]:
+        ret = []
+        for obj in objs:
+            ret.append(self.create(db=db, db_obj=obj))
+        return ret
 
     def update(
         self,
