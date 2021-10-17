@@ -3,16 +3,20 @@ from pathlib import Path
 import pandas as pd
 import time
 from fastapi import Depends
+import cProfile
+import pstats
+import traceback
+import datetime
 
-from app.config import settings
-from app.db import get_db
-from app.utils.logging import Logger
-from app.models.runner import build as Runner
-from app.crud import crud
-from app.models import Patients, Visits, Locations
-from app.models.rootrunner import RootRunner
-from app.utils.utils import convert_sql_datetime
-from app.utils.exceptions import (
+from courier.config import settings
+from courier.db import get_db
+from courier.utils.logging import Logger
+from courier.models.runner import build as Runner
+from courier.crud import crud
+from courier.models import Patients, Visits, Locations
+from courier.models.rootrunner import RootRunner
+from courier.utils.utils import convert_sql_datetime, valid_phone
+from courier.utils.exceptions import (
     StateError,
     GenericError,
     FileExtensionError,
@@ -21,6 +25,8 @@ from app.utils.exceptions import (
 )
 
 logger = Logger("base.lambda_function")
+
+LINE = "-------------------"
 
 
 class Handler:
@@ -42,15 +48,18 @@ class Handler:
         self.error.append({"rec": rec, "error": error})
 
     def __init__(self, event):
-        for rec in event["Records"]:
-            if rec["s3"]["object"]["key"].startswith("input/"):
-                self.add_new(rec)
-            elif rec["s3"]["object"]["key"].startswith("history/"):
-                self.add_history(rec)
-            elif rec["s3"]["object"]["key"].startswith("resend/"):
-                self.add_resend(rec)
-            else:
-                self.add_error(rec, "Unknown Bucket")
+        try:
+            for rec in event["Records"]:
+                if rec["s3"]["object"]["key"].startswith("input/"):
+                    self.add_new(rec)
+                elif rec["s3"]["object"]["key"].startswith("history/"):
+                    self.add_history(rec)
+                elif rec["s3"]["object"]["key"].startswith("resend/"):
+                    self.add_resend(rec)
+                else:
+                    self.add_error(rec, "Unknown Bucket")
+        except Exception as e:
+            logger.print_and_log(traceback.print_exc())
 
     def process_new(self):
         # initialize runner instance
@@ -58,6 +67,7 @@ class Handler:
         for rec in self.new:
             try:
                 runner = Runner(rec)
+                logger.print_and_log(runner)
                 with settings.s3.open(runner.bucket, runner.file_in, "r") as f:
                     df = pd.read_csv(f)
                 for index, row in df.iterrows():
@@ -78,14 +88,31 @@ class Handler:
                         )
                     with get_db() as db:
                         if not crud.patients.exists(db=db, id=row["PatientID"]):
-                            patient = Patients()
-                            root_runner.patients.append(
-                                patient
-                            )  # append as list of models
+                            name_arr = row["PatientName"].splint(",")
+                            patientLast = name_arr[0]
+                            _, patientFirst, patientMiddle = name_arr[1].split(" ")
+                            (phone, phoneType) = valid_phone(row["Phone"])
+                            patient = Patients(
+                                PatientID=row["PatientID"],
+                                PatientFirst=patientFirst,
+                                PatientLast=patientLast,
+                                PatientMiddle=patientMiddle,
+                                Imported=datetime.datetime.now().strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                                Age=int(row["Age"]),
+                                Email=row["Email"],
+                                Phone=phone,
+                                PhoneType=phoneType,
+                                Death=convert_sql_datetime(row["DateOfDeath"])
+                                if row["DateOfDeath"]
+                                else None,
+                            )
+                            root_runner.patients.append(patient)
                         if not crud.visits.exists(db=db, id=row["SurveyRequestID"]):
                             date_of_service = (
                                 convert_sql_datetime(row["DateOfService"])
-                                if not row["DateOfService"]
+                                if row["DateOfService"]
                                 else None
                             )
                             post_date = (
@@ -135,23 +162,26 @@ class Handler:
                             logger.print_and_log(
                                 f"Inserting {len(root_runner.patients)} patients"
                             )
-                            crud.patients.create_many(
+                            temp = crud.patients.create_many(
                                 db=db, objs=root_runner.patients
-                            )  # stub
+                            )
+                            logger.print_and_log(f"{len(temp)} patients inserted.")
                         if root_runner.locations:
                             logger.print_and_log(
                                 f"Inserting {len(root_runner.locations)} locations"
                             )
-                            crud.locations.create_many(
+                            temp = crud.locations.create_many(
                                 db=db, objs=root_runner.locations
-                            )  # stub
+                            )
+                            logger.print_and_log(f"{len(temp)} locations inserted.")
                         if root_runner.visits:
                             logger.print_and_log(
                                 f"Inserting {len(root_runner.visits)} visits"
                             )
-                            crud.visits.create_many(
+                            temp = crud.visits.create_many(
                                 db=db, objs=root_runner.visits
-                            )  # stub
+                            )
+                            logger.print_and_log(f"{len(temp)} visits inserted.")
                 # ! next: line 654
 
             except FileExtensionError as e:
@@ -281,7 +311,7 @@ class Handler:
         pass
 
     def process_error(self):
-        #  Create s3 file with erroneous records
+        # todo: Create s3 file with erroneous records
         logger.print_and_log(f"Error file saved in folder")
         pass
 
@@ -306,13 +336,26 @@ def setup_log():
     logger.start_log(log_path=log_file_dir)
 
 
-def lambda_handler(event, context):
+def main(event, context):
     setup_log()
+    logger.print_and_log(LINE)
     logger.print_and_log(f"Received event(s): {str(event)}")
     start = time.time()
-    logger.print_and_log(f"Process beginning at {time.localtime(start)}")
-    handler = Handler(event)
+    logger.print_and_log(
+        f"Process beginning at {time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(start))}"
+    )
+    # Logic for profiling (see what is taking the most time in the process)
+    if settings.PROFILE:
+        with cProfile.Profile() as pr:
+            handler = Handler(event)
+            handler.process()
+        stats = pstats.Stats(pr)
+        stats.sort_stats(pstats.SortKey.TIME)
+        stats.dump_stats("profile.prof")
+    else:
+        handler = Handler(event)
+        handler.process()
     end = time.time()
     logger.print_and_log(
-        f"Finished at {time.localtime(end)}. Process took {end-start} seconds."
+        f"Finished at {time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(end))}. Process took {end-start:.3f} seconds."
     )

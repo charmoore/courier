@@ -2,7 +2,7 @@ from typing import List
 
 from sqlmodel import SQLModel
 
-from app.models import Patients, Visits, Locations
+from courier.models import Patients, Visits, Locations
 
 
 class RootRunner(SQLModel):

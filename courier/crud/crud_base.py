@@ -3,7 +3,7 @@ from typing import Generic, TypeVar, Type, Any, Optional, List
 from sqlalchemy.orm import Session
 from sqlmodel import SQLModel
 
-from app.utils.logging import Logger
+from courier.utils.logging import Logger
 
 
 ModelType = TypeVar("ModelType", bound=SQLModel)

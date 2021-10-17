@@ -6,6 +6,8 @@ import urllib.parse
 
 
 class Settings(BaseSettings):
+    # If you want time profiling data:
+    PROFILE: bool = False
     # Project creds
     AWS_REGION: str = Field(..., env="region")
     importroleArn: str

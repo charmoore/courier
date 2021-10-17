@@ -37,3 +37,7 @@
 # Questions for next PR:
 
 - what is the purpose of convert_sql_datetime (line 383)
+
+Todo:
+
+package into library, make another repo to pull from this library and run the script (a-la courier.scripts.test_launch)

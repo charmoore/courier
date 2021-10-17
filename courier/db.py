@@ -3,9 +3,9 @@ from typing import Generator
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.config import settings
-from app.utils.logging import Logger
-from app.utils.exceptions import DBConnectionError
+from courier.config import settings
+from courier.utils.logging import Logger
+from courier.utils.exceptions import DBConnectionError
 
 logger = Logger("base.db")
 

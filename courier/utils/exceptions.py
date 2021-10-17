@@ -1,4 +1,4 @@
-from app.config import settings
+from courier.config import settings
 
 # Boto3 client connection exception
 

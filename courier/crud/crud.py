@@ -2,15 +2,15 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.crud.crud_base import CRUDBase
-from app.models.locations import Locations
-from app.models.messages import Messages
-from app.models.patients import Patients
-from app.models.plans import Plans
-from app.models.providers import Providers
-from app.models.responses import Responses
-from app.models.visits import Visits
-from app.utils.enums import Reasons, MessageTypes
+from courier.crud.crud_base import CRUDBase
+from courier.models.locations import Locations
+from courier.models.messages import Messages
+from courier.models.patients import Patients
+from courier.models.plans import Plans
+from courier.models.providers import Providers
+from courier.models.responses import Responses
+from courier.models.visits import Visits
+from courier.utils.enums import Reasons, MessageTypes
 
 
 class CRUDLocations(CRUDBase[Locations]):
@@ -20,7 +20,7 @@ class CRUDLocations(CRUDBase[Locations]):
     def exists(self, db: Session, id: Any) -> bool:
         if "(" in id:
             id = id.partition(" ")[0].replace("(", "").replace(")", "")
-            return self.get(db=db, id=new_id) is not None
+            return self.get(db=db, id=id) is not None
         else:
             return db.query(self.model).filter(self.model.LocationName == id).first()
 
