@@ -11,11 +11,12 @@ import datetime
 from courier.config import settings
 from courier.db import get_db
 from courier.utils.logging import Logger
+from courier.utils.enums import Reasons, MessageTypes
 from courier.models.runner import build as Runner
 from courier.crud import crud
-from courier.models import Patients, Visits, Locations
+from courier.models import Patients, Visits, Locations, Messages
 from courier.models.rootrunner import RootRunner
-from courier.utils.utils import convert_sql_datetime, valid_phone
+from courier.utils.utils import convert_sql_datetime, valid_phone, check_date_service
 from courier.utils.exceptions import (
     StateError,
     GenericError,
@@ -115,6 +116,10 @@ class Handler:
                                 if row["DateOfService"]
                                 else None
                             )
+                            # Check date of service
+                            if check_date_service(row["DateOfService"]):
+                                message = Messages(Reas)
+                                root_runner.messages_no_send.append()
                             post_date = (
                                 convert_sql_datetime(row["PostDate"])
                                 if row["PostDate"]
@@ -157,31 +162,23 @@ class Handler:
                             root_runner.locations.append(
                                 location
                             )  # append as list of models
-                        # Now that they're sorted, insert all of them
-                        if root_runner.patients:
-                            logger.print_and_log(
-                                f"Inserting {len(root_runner.patients)} patients"
-                            )
-                            temp = crud.patients.create_many(
-                                db=db, objs=root_runner.patients
-                            )
-                            logger.print_and_log(f"{len(temp)} patients inserted.")
-                        if root_runner.locations:
-                            logger.print_and_log(
-                                f"Inserting {len(root_runner.locations)} locations"
-                            )
-                            temp = crud.locations.create_many(
-                                db=db, objs=root_runner.locations
-                            )
-                            logger.print_and_log(f"{len(temp)} locations inserted.")
-                        if root_runner.visits:
-                            logger.print_and_log(
-                                f"Inserting {len(root_runner.visits)} visits"
-                            )
-                            temp = crud.visits.create_many(
-                                db=db, objs=root_runner.visits
-                            )
-                            logger.print_and_log(f"{len(temp)} visits inserted.")
+                # Now that they're sorted, insert all of them
+                if root_runner.patients:
+                    logger.print_and_log(
+                        f"Inserting {len(root_runner.patients)} patients"
+                    )
+                    temp = crud.patients.create_many(db=db, objs=root_runner.patients)
+                    logger.print_and_log(f"{len(temp)} patients inserted.")
+                if root_runner.locations:
+                    logger.print_and_log(
+                        f"Inserting {len(root_runner.locations)} locations"
+                    )
+                    temp = crud.locations.create_many(db=db, objs=root_runner.locations)
+                    logger.print_and_log(f"{len(temp)} locations inserted.")
+                if root_runner.visits:
+                    logger.print_and_log(f"Inserting {len(root_runner.visits)} visits")
+                    temp = crud.visits.create_many(db=db, objs=root_runner.visits)
+                    logger.print_and_log(f"{len(temp)} visits inserted.")
                 # ! next: line 654
 
             except FileExtensionError as e:

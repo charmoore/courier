@@ -2,7 +2,7 @@ from typing import List
 
 from sqlmodel import SQLModel
 
-from courier.models import Patients, Visits, Locations
+from courier.models import Patients, Visits, Locations, Messages
 
 
 class RootRunner(SQLModel):
@@ -12,9 +12,9 @@ class RootRunner(SQLModel):
     patients: List[Patients] = []
     visits: List[Visits] = []
     locations: List[Locations] = []
-    messages = []
-    messages_no_send = []
-    messages_errors = []
+    messages: List[Messages] = []
+    messages_no_send: List[Messages] = []
+    messages_errors: List[Messages] = []
     reports = []
     count_messages: int = 0
     skip_age: int = 0
