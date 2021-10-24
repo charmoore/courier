@@ -53,6 +53,7 @@ class CRUDMessages(CRUDBase[Messages]):
         )
 
 
+
 messages = CRUDMessages(Messages)
 
 

@@ -1,3 +1,4 @@
+from typing import Dict
 import os
 import phonenumbers
 from datetime import datetime, timedelta
@@ -5,6 +6,7 @@ from datetime import datetime, timedelta
 from phonenumbers.phonenumberutil import NumberParseException
 
 from courier.config import settings
+from courier.utils.enums import Reasons
 
 DATE_FORMAT = "%Y-%m-%d"
 
@@ -70,3 +72,20 @@ def valid_phone(raw_number: str, country_code: str = "US") -> tuple[bool, int]:
         phone_type = 0
 
     return is_valid, phone_type
+
+REASONCOMMENTS : Dict[str,str] = {
+    "PENDING" : 1,
+    "SENT" : 2,
+    "UNDER_AGE" : f"A message will not be sent for this visit becuase the patient is under the minimum age of {settings.age_min}.",
+    "EXPIRED" : 4,
+    "PHONE_BLANK" : 5,
+    "EMAIL_BLANK" : 6,
+    "PHONE_INVALID" : 7,
+    "OPTED_OUT" : 'A message will not be sent for this visit because the patient opted out of messaging.',
+    "SEGMENT_PENDING" : 9,
+    "ARCHIVE" : "A message will not be sent for this visit, because the date of service is over 30 days.",
+    }
+
+def get_reason_message(reason: Reasons) -> str:
+    return REASONCOMMENTS.get(reason.name)
+

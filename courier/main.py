@@ -16,7 +16,7 @@ from courier.models.runner import build as Runner
 from courier.crud import crud
 from courier.models import Patients, Visits, Locations, Messages
 from courier.models.rootrunner import RootRunner
-from courier.utils.utils import convert_sql_datetime, valid_phone, check_date_service
+from courier.utils.utils import convert_sql_datetime, valid_phone, check_date_service, get_reason_message
 from courier.utils.exceptions import (
     StateError,
     GenericError,
@@ -24,6 +24,7 @@ from courier.utils.exceptions import (
     PracticeError,
     ProviderError,
 )
+from lambda_function_dep import check_phone_number
 
 logger = Logger("base.lambda_function")
 
@@ -93,6 +94,14 @@ class Handler:
                             patientLast = name_arr[0]
                             _, patientFirst, patientMiddle = name_arr[1].split(" ")
                             (phone, phoneType) = valid_phone(row["Phone"])
+                            if int(row['Age'])< settings.age_min:
+                                message = Messages(ReasonID=Reasons.UNDER_AGE.value, Comment=get_reason_message(Reasons.UNDER_AGE),TypeID=MessageTypes.NULL.value, DTGSent=datetime.datetime.today())
+                                root_runner.messages_no_send.append(message)
+                            death = None
+                            if row['DateOfDeath']:
+                                death = convert_sql_datetime(row['DateOfDeath'])
+                                message = Messages(ReasonID=Reasons.EXPIRED.value, Comment = get_reason_message(Reasons.EXPIRED), TypeID=MessageTypes.NULL.value, DTGSent=datetime.datetime.today())
+                                root_runner.messages_no_send.append(message)
                             patient = Patients(
                                 PatientID=row["PatientID"],
                                 PatientFirst=patientFirst,
@@ -105,11 +114,15 @@ class Handler:
                                 Email=row["Email"],
                                 Phone=phone,
                                 PhoneType=phoneType,
-                                Death=convert_sql_datetime(row["DateOfDeath"])
-                                if row["DateOfDeath"]
-                                else None,
+                                Death=death,
                             )
                             root_runner.patients.append(patient)
+                        else : 
+                            patient = crud.patients.get(db=db, id=row['PatientID'])
+                            if patient.OptOut == 1:
+                                message = Messages(ReasonID=Reasons.OPTED_OUT.value, Comment=get_reason_message(Reasons.OPTED_OUT),TypeID=MessageTypes.NULL.value, DTGSent=datetime.datetime.today())
+                                root_runner.messages_no_send.append(message)
+                            if valid_phone() #todo: pickup at 721
                         if not crud.visits.exists(db=db, id=row["SurveyRequestID"]):
                             date_of_service = (
                                 convert_sql_datetime(row["DateOfService"])
@@ -118,8 +131,8 @@ class Handler:
                             )
                             # Check date of service
                             if check_date_service(row["DateOfService"]):
-                                message = Messages(Reas)
-                                root_runner.messages_no_send.append()
+                                message = Messages(ReasonID=Reasons.ARCHIVE.value, Comment=get_reason_message(Reasons.ARCHIVE),TypeID=MessageTypes.NULL.value,DTGSent=datetime.datetime.today())
+                                root_runner.messages_no_send.append(message)
                             post_date = (
                                 convert_sql_datetime(row["PostDate"])
                                 if row["PostDate"]
@@ -141,7 +154,7 @@ class Handler:
                                 PatientID=row["PatientID"],
                                 LocationID=location_id,
                                 ProviderID=provider.ProviderID,
-                                DateOFService=date_of_service,
+                                DateOfService=date_of_service,
                                 DatePosted=post_date,
                                 VisitNumber=row["VisitNumber"],
                             )
@@ -179,7 +192,10 @@ class Handler:
                     logger.print_and_log(f"Inserting {len(root_runner.visits)} visits")
                     temp = crud.visits.create_many(db=db, objs=root_runner.visits)
                     logger.print_and_log(f"{len(temp)} visits inserted.")
-                # ! next: line 654
+                if root_runner.messages_no_send:
+                    # try to insert each record, catch errors back to here and append to root_runner.messages_errors
+                    pass
+                # todo: still need to handle attempting to insert messages and catching errors
 
             except FileExtensionError as e:
                 # add to error dict
