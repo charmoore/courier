@@ -33,21 +33,21 @@ class CRUDMessages(CRUDBase[Messages]):
         return db.query(self.model).filter(self.model.MessageID == id).first()
 
     def exists(
-        self, db: Session, id: Any, type: MessageTypes = 0, reason: Reasons = None
+        self, db: Session, id: Any, type: int = 0, reason: int = None
     ) -> bool:
         if reason:
             return (
                 db.query(self.model)
                 .filter(self.model.VisitID == id)
-                .filter(self.model.TypeID == type.value)
-                .filter(self.model.ReasonID == reason.value)
+                .filter(self.model.TypeID == type)
+                .filter(self.model.ReasonID == reason)
                 .first()
                 is not None
             )
         return (
             db.query(self.model)
             .filter(self.model.VisitID == id)
-            .filter(self.model.TypeID == type.value)
+            .filter(self.model.TypeID == type)
             .first()
             is not None
         )

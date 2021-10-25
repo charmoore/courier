@@ -74,7 +74,7 @@ def valid_phone(raw_number: str, country_code: str = "US") -> tuple[bool, int]:
     return is_valid, phone_type
 
 REASONCOMMENTS : Dict[str,str] = {
-    "PENDING" : 1,
+    "PENDING" : f"Initial entry.  Added {datetime.today()}.",
     "SENT" : 2,
     "UNDER_AGE" : f"A message will not be sent for this visit becuase the patient is under the minimum age of {settings.age_min}.",
     "EXPIRED" : 4,
