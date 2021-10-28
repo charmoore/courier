@@ -14,7 +14,7 @@ from courier.utils.logging import Logger
 from courier.utils.enums import Reasons, MessageTypes
 from courier.models.runner import build as Runner
 from courier.crud import crud
-from courier.models import Patients, Visits, Locations, Messages
+from courier.models import Patients, Visits, Locations, Messages, MessagesSend
 from courier.models.rootrunner import RootRunner
 from courier.utils.utils import (
     convert_sql_datetime,
@@ -221,7 +221,7 @@ class Handler:
                             )
                             root_runner.messages_no_send.append(message)
                         if settings.plan == 2:
-                            message = Messages(
+                            message = MessagesSend(
                                 SurveyLink=crud.providers.get_survey_link(
                                     db=db,
                                     servicing_provider=row["ServicingProvider"],
@@ -234,8 +234,8 @@ class Handler:
                                 Comment=get_reason_message(Reasons.PENDING),
                                 TypeID=MessageTypes.INITIAL_EMAIL.value,
                                 DTGSent=datetime.datetime.today(),
+                                SurveyRequestID=row["SurveyRequestID"],
                             )
-                            message.SurveyRequestID = row["SurveyRequestID"]
                             root_runner.messages_send.append(message)
 
                         if settings.plan == 3:
@@ -311,6 +311,8 @@ class Handler:
                             crud.messages.create(db=db, db_obj=message)
                         else:
                             root_runner.messages_errors.append(message)
+                if root_runner.messages_errors:
+                    pass
 
             except FileExtensionError as e:
                 # add to error dict

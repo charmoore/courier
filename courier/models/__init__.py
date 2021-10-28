@@ -1,5 +1,5 @@
 from .locations import Locations
-from .messages import Messages
+from .messages import Messages, MessagesSend
 from .patients import Patients
 from .providers import Providers
 from .responses import Responses

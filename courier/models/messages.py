@@ -15,3 +15,7 @@ class Messages(SQLModel, table=True):
     SurveyLink: Optional[str] = Field(default=None, max_length=255)
     Address: Optional[str] = Field(default=None, max_length=255)
     Comments: Optional[str] = Field(default=None, max_length=255)
+
+
+class MessagesSend(Messages):
+    SurveyRequestID: str

@@ -1,7 +1,10 @@
-from typing import Dict
+from typing import Dict, List
 import os
+
+from sqlmodel import SQLModel
 import phonenumbers
 from datetime import datetime, timedelta
+import pandas as pd
 
 from phonenumbers.phonenumberutil import NumberParseException
 
@@ -90,3 +93,16 @@ REASONCOMMENTS: Dict[str, str] = {
 
 def get_reason_message(reason: Reasons) -> str:
     return REASONCOMMENTS.get(reason.name)
+
+
+def s3_write_models(
+    data: List[SQLModel],
+    path: str,
+    mode: str = "w",
+    newline: str = "",
+    encoding: str = "utf-8",
+):
+    df = pd.DataFrame([model.dict() for model in data])
+
+    with settings.s3.open(path, mode, newline, encoding) as file:
+        df.to_csv(file)
