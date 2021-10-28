@@ -13,6 +13,7 @@ class RootRunner(SQLModel):
     visits: List[Visits] = []
     locations: List[Locations] = []
     messages: List[Messages] = []
+    messages_send: List[Messages] = []
     messages_no_send: List[Messages] = []
     messages_errors: List[Messages] = []
     reports = []

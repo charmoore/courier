@@ -198,7 +198,6 @@ class Handler:
                             root_runner.locations.append(
                                 location
                             )  # append as list of models
-                        # todo work all of this out. line 716
                         if settings.plan == 1:
                             if crud.patients.has_landline(db=db, id=row["PatientID"]):
                                 message = Messages(
@@ -208,6 +207,7 @@ class Handler:
                                     DTGSent=datetime.datetime.today(),
                                 )
                                 root_runner.messages_no_send.append(message)
+
                             address = crud.patients.get(
                                 db=db, id=row[["PatientID"]]
                             ).Phone
@@ -221,7 +221,23 @@ class Handler:
                             )
                             root_runner.messages_no_send.append(message)
                         if settings.plan == 2:
-                            pass
+                            message = Messages(
+                                SurveyLink=crud.providers.get_survey_link(
+                                    db=db,
+                                    servicing_provider=row["ServicingProvider"],
+                                    request_id=row["SurveyRequestID"],
+                                ),
+                                Address=crud.patients.get(
+                                    db=db, id=row["PatientID"]
+                                ).Email,
+                                ReasonID=Reasons.PENDING.value,
+                                Comment=get_reason_message(Reasons.PENDING),
+                                TypeID=MessageTypes.INITIAL_EMAIL.value,
+                                DTGSent=datetime.datetime.today(),
+                            )
+                            message.SurveyRequestID = row["SurveyRequestID"]
+                            root_runner.messages_send.append(message)
+
                         if settings.plan == 3:
                             if crud.patients.has_landline(db=db, id=row["PatientID"]):
                                 message = Messages(
@@ -231,6 +247,7 @@ class Handler:
                                     DTGSent=datetime.datetime.today(),
                                 )
                                 root_runner.messages_no_send.append(message)
+
                             address = crud.patients.get(
                                 db=db, id=row[["PatientID"]]
                             ).Phone
@@ -243,6 +260,22 @@ class Handler:
                                 DTGSent=datetime.datetime.today(),
                             )
                             root_runner.messages_no_send.append(message)
+                            message = Messages(
+                                SurveyLink=crud.providers.get_survey_link(
+                                    db=db,
+                                    servicing_provider=row["ServicingProvider"],
+                                    request_id=row["SurveyRequestID"],
+                                ),
+                                Address=crud.patients.get(
+                                    db=db, id=row["PatientID"]
+                                ).Email,
+                                ReasonID=Reasons.PENDING.value,
+                                Comment=get_reason_message(Reasons.PENDING),
+                                TypeID=MessageTypes.INITIAL_EMAIL.value,
+                                DTGSent=datetime.datetime.today(),
+                            )
+                            message.SurveyRequestID = row["SurveyRequestID"]
+                            root_runner.messages_send.append(message)
                 # Now that they're sorted, insert all of them
                 if root_runner.patients:
                     logger.print_and_log(
@@ -262,8 +295,16 @@ class Handler:
                     logger.print_and_log(f"{len(temp)} visits inserted.")
 
                 if root_runner.messages_no_send:
-                    # try to insert each record, catch errors back to here and append to root_runner.messages_errors
+                    # try to create each record, catch errors back to here and append to root_runner.messages_errors
                     for message in root_runner.messages_no_send:
+                        if not crud.messages.exists(
+                            db=db, type=message.TypeID, reason=message.ReasonID
+                        ):
+                            crud.messages.create(db=db, db_obj=message)
+                        else:
+                            root_runner.messages_errors.append(message)
+                if root_runner.messages_send:
+                    for message in root_runner.messages_send:
                         if not crud.messages.exists(
                             db=db, type=message.TypeID, reason=message.ReasonID
                         ):

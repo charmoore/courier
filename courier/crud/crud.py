@@ -32,9 +32,7 @@ class CRUDMessages(CRUDBase[Messages]):
     def get(self, db: Session, id: Any) -> Optional[Messages]:
         return db.query(self.model).filter(self.model.MessageID == id).first()
 
-    def exists(
-        self, db: Session, id: Any, type: int = 0, reason: int = None
-    ) -> bool:
+    def exists(self, db: Session, id: Any, type: int = 0, reason: int = None) -> bool:
         if reason:
             return (
                 db.query(self.model)
@@ -51,7 +49,6 @@ class CRUDMessages(CRUDBase[Messages]):
             .first()
             is not None
         )
-
 
 
 messages = CRUDMessages(Messages)
@@ -95,6 +92,12 @@ class CRUDProviders(CRUDBase[Providers]):
             .first()
         )
         return provider
+
+    def get_survey_link(
+        self, db: Session, servicing_provider: str, request_id: str
+    ) -> str:
+        provider = self.get_by_names(db=db, name=servicing_provider)
+        return f"{provider.SurveyURL}?id={request_id}"
 
 
 providers = CRUDProviders(Providers)
