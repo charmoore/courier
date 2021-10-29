@@ -42,7 +42,6 @@ class Handler:
     new = []
     history = []
     resend = []
-    error = []
 
     def add_new(self, rec):
         self.new.append(rec)
@@ -52,9 +51,6 @@ class Handler:
 
     def add_resend(self, rec):
         self.resend.append(rec)
-
-    def add_error(self, rec, error):
-        self.error.append({"rec": rec, "error": error})
 
     def __init__(self, event):
         try:
@@ -66,7 +62,7 @@ class Handler:
                 elif rec["s3"]["object"]["key"].startswith("resend/"):
                     self.add_resend(rec)
                 else:
-                    self.add_error(rec, "Unknown Bucket")
+                    raise StateError("Unknown Bucket")
         except Exception as e:
             logger.print_and_log(traceback.print_exc())
 
@@ -458,11 +454,6 @@ class Handler:
     def process_resend(self):
         pass
 
-    def process_error(self):
-        # todo: Create s3 file with erroneous records
-        logger.print_and_log(f"Error file saved in folder")
-        pass
-
     def process(self):
         if self.new:
             self.process_new()
@@ -470,8 +461,6 @@ class Handler:
             self.process_history()
         if self.resend:
             self.process_resend()
-        if self.error:
-            self.process_error()
 
 
 def setup_log():
