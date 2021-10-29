@@ -3,10 +3,10 @@ from setuptools import find_packages, setup
 setup(
     name="courier",
     packages=find_packages(exclude=["courier.scripts"]),
-    version="0.1.2",
+    version="0.1.3",
     description="Courier Runner Library",
     author="Jacob Rodgers [yudjinn]",
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=[
         "aiobotocore==1.4.2",
         "aiohttp==3.7.4.post0",
