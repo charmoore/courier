@@ -7,6 +7,8 @@ import cProfile
 import pstats
 import traceback
 import datetime
+import boto3
+from botocore.exceptions import ClientError
 
 from courier.config import settings
 from courier.db import get_db
@@ -21,6 +23,7 @@ from courier.utils.utils import (
     valid_phone,
     check_date_service,
     get_reason_message,
+    s3_write_df,
 )
 from courier.utils.exceptions import (
     StateError,
@@ -312,7 +315,122 @@ class Handler:
                         else:
                             root_runner.messages_errors.append(message)
                 if root_runner.messages_errors:
-                    pass
+                    path = f"s3://{runner.bucket}/error/{runner.file_errors}"
+                    df = pd.DataFrame(
+                        [model.dict() for model in root_runner.messages_errors]
+                    )
+                    s3_write_df(data=df, path=path)
+                    logger.print_and_log(
+                        f"Some records contained errors. They were saved to {path}",
+                        "warning",
+                    )
+                # Move file to processed folder
+                move_from = f"s3://{runner.bucket}/{runner.file_in}"
+                move_to = f"s3://{runner.bucket}/processed/{runner.file_processed}"
+                settings.s3.move(move_from, move_to)
+
+                # Send over to messages for segment handling
+                segment = crud.messages_pending.build_segment(
+                    db=db, root_runner=root_runner, runner=runner
+                )
+                segment_path = f"s3://{runner.bucket}/segment/{runner.file_out}"
+                s3_write_df(segment, segment_path)
+
+                # Send the segment
+                if root_runner.messages_send:
+                    logger.print_and_log(f"Sending messages to Pinpoint...")
+                    client = boto3.client("pinpoint")
+                    response = client.create_import_job(
+                        ApplicationId=settings.projectId,
+                        ImportJobRequest={
+                            "DefineSegment": True,
+                            "Format": "CSV",
+                            "RegisterEndpoints": True,
+                            "RoleArn": settings.importRoleArn,
+                            "S3Url": f"s3://{runner.bucket}/segment/{runner.file_out}",
+                            "SegmentName": runner.segment_name,
+                        },
+                    )
+                    segment_id = response["ImportJobResponse"]["Definition"][
+                        "SegmentId"
+                    ]
+                    logger.print_and_log(
+                        "Import job "
+                        + response["ImportJobResponse"]["Id"]
+                        + " "
+                        + response["ImportJobResponse"]["JobStatus"]
+                        + "."
+                    )
+                    logger.print_and_log(
+                        "Segment ID: "
+                        + response["ImportJobResponse"]["Definition"]["SegmentId"]
+                    )
+                    logger.print_and_log("Application ID: " + settings.projectId)
+                    logger.print_and_log(
+                        f"Updating {settings.db_database} database with segment schedule."
+                    )
+                    # Update all sent messages in db
+                    for message in root_runner.messages_send:
+                        crud.messages.update(
+                            db=db,
+                            db_obj=message,
+                            obj_in={
+                                "Reason": Reasons.SEGMENT_PENDING.value,
+                                "Comment": get_reason_message(Reasons.SEGMENT_PENDING),
+                            },
+                        )
+                    logger.print_and_log(
+                        f"Creating Pinpoint campaign from segment {runner.segment_name} (id: {segment_id})."
+                    )
+                    logger.print_and_log(
+                        f"Using templates: \n {settings.template_sms} \n {settings.template_email}"
+                    )
+                    # Todo ask about this sleep?
+                    pinpoint_client = boto3.client("pinpoint")
+                    response = pinpoint_client.create_campaign(
+                        ApplicationId=settings.projectId,
+                        WriteCampaignRequest={
+                            "Description": "Campaign created to send Clearsurvey surveys to patients after their visit to a provider.",
+                            "AdditionalTreatments": [],
+                            "IsPaused": False,
+                            "Schedule": {
+                                "Frequency": "ONCE",
+                                "IsLocalTime": False,
+                                "StartTime": "IMMEDIATE",
+                                "Timezone": "UTC",
+                                "QuietTime": {},
+                            },
+                            "TemplateConfiguration": {
+                                "EmailTemplate": {"Name": settings.template_email},
+                                "SMSTemplate": {"Name": settings.template_sms},
+                            },
+                            "Name": runner.segment_name,
+                            "SegmentId": segment_id,
+                            "SegmentVersion": 1,
+                        },
+                    )
+                    logger.print_and_log(f"Response: \n {response}")
+                    for message in root_runner.messages_send:
+                        crud.messages.update(
+                            db=db,
+                            db_obj=message,
+                            obj_in={
+                                "Sent": 1,
+                                "ReasonID": Reasons.SENT.value,
+                                "Comment": get_reason_message(Reasons.SENT),
+                                "DTGSent": {
+                                    datetime.datetime.strftime(
+                                        datetime.datetime.now(), "%Y-%m-%d %H:%M:%S"
+                                    )
+                                },
+                            },
+                        )
+                else:
+                    logger.print_and_log(
+                        f"No messages to process to Pinpoint. Check error file",
+                        "warning",
+                    )
+                # Bypassing reporting func
 
             except FileExtensionError as e:
                 # add to error dict
@@ -333,106 +451,6 @@ class Handler:
                 settings.s3.move(object=file, destination=destination)
             except GenericError as e:
                 self.add_error(rec=rec, error=e)
-
-        # * a lot of the db work can genuinely be wrapped in a try-catch-finally
-
-        # setup vars
-        # check if file is valid -> stop if invalid
-        # s3 open file
-        # read through all lines, append to records list
-        # check practice name against record's practice -> error if not
-        # iterate through all records, check if they are unique patients, visits, locations
-        # ? this could be just getting all unique of a column and ensuring they exist
-        # if they dont exist, add them to the database
-
-        # check dateservice, whatever that does
-        # check the messages in the db to see what the message reason was (type 0, reason 10)
-        # if there's none, add to messages_no_send
-        # else, add to error list with ("exists")
-
-        # check the patient isnt old enough
-        # check if a message exists on the patient with type 0, reason 3,,
-        # if theres none, add to messages_no_send, else add to errors
-
-        # check if the patient is expired
-        # if so, check for message (type 0, reason 4)
-        # add to messages_no_send if doesnt exist,
-        # if there is a message, add to errors
-
-        # check if the patient opted out
-        # if so, check for message (type 0, reason 8)
-        # add to messages_no_send if doesnt exist,
-        # if there is a message, add to errors
-
-        # check if plan is 1 or 3
-        # get_phone_db for record
-
-        # check landline to see if you can text
-        # check the message db for type 0 reason 7
-        # Messages_no_send
-
-        # check message db for type2
-        # get survey link
-        # insert message_send
-
-        # else:
-        # insert messages_errors
-        # If plan is 2 or 3
-        #! what does this mean? why does it overlap with above?
-        # if not check_message_db
-        # append to messages_send
-
-        # else:
-        # append to messages_errors
-        # If there are errors, handle them
-        # open s3 bucket, write out csv file with error records using field names
-        # Print error message
-
-        # messages = messages_send + messages_no_send (weird.. maybe just boolean?)
-        # insert_messages function - inserts into db
-        # s3 move from input to processed
-        #  success messages
-        # message to process messages into pinpoint
-        # s3 open file for segment, write file out with channel types ** special flags here #829
-
-        # print message if messages_send > 0
-        # initialize client
-        # get a create_import_job response to start off segment run
-        # catch error and print, else(???):
-        # print the IDs
-
-        # print message to update db with segment schedule
-        # s3 open bucket read in
-        # write segment file id's, skipping first row
-        # set reason to 9, add comment to send to pinpoint
-        # db update for all messages created
-
-        # message to create pinpoint segment from template names
-        # sleep a certain number of seconds (for timeout?)
-        # reinitialize client again...?
-        # try a client.create_campaign #912
-        # catch error message
-        # else again..?
-        # print message about updating database with campaign created
-        # open s3 file, read in
-        # skip first row again
-        # db update for all messages
-
-        # Else (from 105)
-        #  print no messages to process into pinpoint, check error file
-
-        # Create report
-        # if messages_send (again?):
-        # s3 open
-        # for each row, find matching message and parse out data; write to s3 file with ID, Reason, DateTime
-
-        #  print report saved
-        # else print no messages to send, no report (wrap this into earlier fork)
-
-        # Wrap ALL OF THAT into an exception as a general error
-        #  if there is an error, print error, otherwise print success and return
-
-        pass
 
     def process_history(self):
         pass
@@ -470,6 +488,7 @@ def main(event, context):
     setup_log()
     logger.print_and_log(LINE)
     logger.print_and_log(f"Received event(s): {str(event)}")
+    logger.print_and_log(f"Using context: {context}")
     start = time.time()
     logger.print_and_log(
         f"Process beginning at {time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(start))}"

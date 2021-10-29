@@ -1,15 +1,23 @@
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
+import pandas as pd
+import uuid
 
 from courier.crud.crud_base import CRUDBase
-from courier.models.locations import Locations
-from courier.models.messages import Messages
-from courier.models.patients import Patients
-from courier.models.plans import Plans
-from courier.models.providers import Providers
-from courier.models.responses import Responses
-from courier.models.visits import Visits
+from courier.models import (
+    Locations,
+    Messages,
+    Patients,
+    Plans,
+    Providers,
+    Responses,
+    Visits,
+    MessagesSend,
+    RootRunner,
+    Runner,
+)
+from courier.config import settings
 from courier.utils.enums import Reasons, MessageTypes
 
 
@@ -117,3 +125,47 @@ class CRUDVisits(CRUDBase[Visits]):
 
 
 visits = CRUDVisits(Visits)
+
+
+class CRUDViewMessagesPending:
+    def get(self, db: Session, visit_id: str, type_id: str) -> Optional[MessagesSend]:
+        return (
+            db.query(MessagesSend)
+            .filter(MessagesSend.VisitID == visit_id)
+            .filter(MessagesSend.TypeID == type_id)
+            .first()
+        )
+
+    def build_segment(
+        self, db: Session, rootrunner: RootRunner, runner: Runner
+    ) -> pd.DataFrame:
+        output = pd.DataFrame(columns=settings.fieldnames)
+        for message in rootrunner.messages_send:
+            # Todo check with Will on if this obj is correct?
+            obj = self.get(
+                db=db, visit_id=message.SurveyRequestID, type_id=message.TypeID
+            )
+            channel_type = "EMAIL" if obj.TypeID == 3 else "SMS"
+            temp = {
+                "ChannelType": channel_type,
+                "Address": obj.Address,
+                "Id": str(uuid.uuid4()),
+                "User.UserAttributes.PracticeName": settings.practice,
+                "User.UserAttributes.PatientName": obj.Patient,
+                "Location.Country": "US",
+                "User.UserAttributes.Age": obj.Age,
+                "User.UserAttributes.DateOfService": obj.DateOfService,
+                "User.UserAttributes.ServicingProvider": obj.Provider,
+                "User.UserAttributes.LocationName": obj.Location,
+                "User.UserAttributes.VisitNumber": obj.SurveyRequestID,
+                "User.UserAttributes.PostDate": obj.PostDate,
+                "User.UserAttributes.DateofDeath": obj.DateOfDeath,
+                "User.UserAttributes.MessageID": obj.MessageID,
+                "User.UserAttributes.SurveyLink": obj.SurveyLink,
+            }
+            output.append(temp)
+
+        return output
+
+
+messages_pending = CRUDViewMessagesPending()

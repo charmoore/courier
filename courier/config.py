@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     PROFILE: bool = False
     # Project creds
     AWS_REGION: str = Field(..., env="region")
-    importroleArn: str
+    importRoleArn: str
     projectId: str
     s3: s3fs.S3FileSystem = s3fs.S3FileSystem(anon=False)
     formats: List[str] = [".csv"]

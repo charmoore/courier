@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar, Type, Any, Optional, List
+from typing import Generic, TypeVar, Type, Any, Optional, List, Dict, Union
 
 from sqlalchemy.orm import Session
 from sqlmodel import SQLModel
@@ -37,11 +37,15 @@ class CRUDBase(Generic[ModelType]):
         db: Session,
         *,
         db_obj: ModelType,
-        obj_in: ModelType,
+        obj_in: Union[ModelType, Dict[Any, Any]],
     ) -> ModelType:
-        obj_data = db_obj.dict
+        obj_data = db_obj.dict()
 
-        update_data = obj_in.dict(exclude_unset=True)
+        if isinstance(obj_in, Dict[Any, Any]):
+            update_data = obj_in
+        else:
+            update_data = obj_in.dict(exclude_unset=True)
+
         for field in obj_data:
             if field in update_data:
                 setattr(db_obj, field, update_data[field])

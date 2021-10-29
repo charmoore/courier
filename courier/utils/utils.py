@@ -79,14 +79,14 @@ def valid_phone(raw_number: str, country_code: str = "US") -> tuple[bool, int]:
 
 REASONCOMMENTS: Dict[str, str] = {
     "PENDING": f"Initial entry.  Added {datetime.today()}.",
-    "SENT": 2,
+    "SENT": f"Campaign created in pinpoint.",
     "UNDER_AGE": f"A message will not be sent for this visit becuase the patient is under the minimum age of {settings.age_min}.",
     "EXPIRED": 4,
     "PHONE_BLANK": 5,
     "EMAIL_BLANK": 6,
     "PHONE_INVALID": 7,
     "OPTED_OUT": "A message will not be sent for this visit because the patient opted out of messaging.",
-    "SEGMENT_PENDING": 9,
+    "SEGMENT_PENDING": f"Sent to Pinpoint to be imported into segment.",
     "ARCHIVE": "A message will not be sent for this visit, because the date of service is over 30 days.",
 }
 
@@ -95,14 +95,13 @@ def get_reason_message(reason: Reasons) -> str:
     return REASONCOMMENTS.get(reason.name)
 
 
-def s3_write_models(
-    data: List[SQLModel],
+def s3_write_df(
+    data: pd.DataFrame,
     path: str,
     mode: str = "w",
     newline: str = "",
     encoding: str = "utf-8",
 ):
-    df = pd.DataFrame([model.dict() for model in data])
 
     with settings.s3.open(path, mode, newline, encoding) as file:
-        df.to_csv(file)
+        data.to_csv(file)
