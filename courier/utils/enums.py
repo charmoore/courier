@@ -23,6 +23,3 @@ class MessageTypes(IntEnum):
     FOLLOWUP_EMAIL = 5
     RESENT_SMS = 6
     RESENT_EMAIL = 7
-
-
-

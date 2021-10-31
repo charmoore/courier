@@ -42,6 +42,7 @@ class Handler:
     new = []
     history = []
     resend = []
+    error = []
 
     def add_new(self, rec):
         self.new.append(rec)
@@ -51,6 +52,9 @@ class Handler:
 
     def add_resend(self, rec):
         self.resend.append(rec)
+
+    def add_error(self, rec, error):
+        self.error.append({"rec": rec, "error": error})
 
     def __init__(self, event):
         try:
@@ -62,7 +66,7 @@ class Handler:
                 elif rec["s3"]["object"]["key"].startswith("resend/"):
                     self.add_resend(rec)
                 else:
-                    raise StateError("Unknown Bucket")
+                    self.add_error(rec=rec, error=StateError("Unknown Bucket"))
         except Exception as e:
             logger.print_and_log(traceback.print_exc())
 
@@ -381,7 +385,8 @@ class Handler:
                     logger.print_and_log(
                         f"Using templates: \n {settings.template_sms} \n {settings.template_email}"
                     )
-                    # Todo ask about this sleep?
+                    #! Inserted for race condition
+                    time.sleep(settings.seconds)
                     pinpoint_client = boto3.client("pinpoint")
                     response = pinpoint_client.create_campaign(
                         ApplicationId=settings.projectId,
@@ -454,6 +459,19 @@ class Handler:
     def process_resend(self):
         pass
 
+    def process_error(self):
+        for err in self.error:
+            try:
+                runner = Runner(err["rec"])
+            except Exception as e:
+                logger.print_and_log(e)
+            else:
+                file = f"s3://{runner.bucket}/{runner.file_in}"
+                destination = f"s3://{runner.bucket}/error/{runner.file_error}"
+                logger.print_and_log(
+                    f"Due to error, moving object {file} to {destination}"
+                )
+
     def process(self):
         if self.new:
             self.process_new()
@@ -461,6 +479,8 @@ class Handler:
             self.process_history()
         if self.resend:
             self.process_resend()
+        if self.error:
+            self.process_error()
 
 
 def setup_log():
