@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name="courier",
     packages=find_packages(exclude=["courier.scripts"]),
-    version="0.2.0",
+    version="0.2.1",
     description="Courier Runner Library",
     author="Jacob Rodgers [yudjinn]",
     python_requires=">=3.9",
