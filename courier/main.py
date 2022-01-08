@@ -439,7 +439,7 @@ class Handler:
                 file = f"s3://{runner.bucket}/{runner.file_in}"
                 destination = f"s3://{runner.bucket}/error/{runner.file_error}"
                 logger.print_and_log(
-                    f"Due to error, moving object {file} to {destination}"
+                    f"Invalid file extension, moving object {file} to {destination}"
                 )
                 settings.s3.move(object=file, destination=destination)
             except PracticeError as e:
@@ -447,7 +447,7 @@ class Handler:
                 file = f"{runner.bucket}/{runner.file_in}"
                 destination = f"{runner.bucket}/error/{runner.file_error}"
                 logger.print_and_log(
-                    f"Due to error, moving object {file} to {destination}"
+                    f"Unknown practice {settings.practice}, moving object {file} to {destination}"
                 )
                 settings.s3.move(object=file, destination=destination)
             except GenericError as e:
