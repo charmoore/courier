@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from pydantic import BaseSettings, Field, AnyUrl, validator
 import s3fs
 import urllib.parse
-
+import os
 
 class Settings(BaseSettings):
     # If you want time profiling data:
@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     # Misc
     seconds: int
     log_dir_path: str = None
-    LOGGING_DEBUG: bool = False
+    LOGGING_DEBUG: bool = True
     LOGGING_FORMAT = "[%(levelname)s - %(name)s][%(asctime)s] %(message)s"
     fieldnames: List[str] = [
         "ChannelType",
