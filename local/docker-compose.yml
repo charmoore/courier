@@ -5,7 +5,8 @@ version: '3.8'
 #  chmod 777 /tmp/slack_bot/mysqld
 services:
   app:
-    image: courier:0.1
+    image: courier:0.2
+    command: python /usr/src/app/courier/scripts/test_launch.py
     volumes:
       - /tmp/slack_bot/mysqld:/var/run/mysqld
       - db_data:/var/lib/mysql
@@ -20,12 +21,12 @@ services:
     volumes:
       - /tmp/slack_bot/mysqld:/var/run/mysqld
       - db_data:/var/lib/mysql
-      - ../DB/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ../DB/:/docker-entrypoint-initdb.d/
     restart: always
     ports:
       - '3306:3306'
     env_file:
-      - ./.env
+      - ../.env
     networks:
       - net
 volumes:
