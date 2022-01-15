@@ -1,15 +1,33 @@
 version: '3.9'
 
+# to be able to connect on the local unix socket run:
+#  mkdir /tmp/slack_bot/mysqld
+#  chmod 777 /tmp/slack_bot/mysqld
 services:
+  app:
+    image: courier:0.1
+    volumes:
+      - /tmp/slack_bot/mysqld:/var/run/mysqld
+      - db_data:/var/lib/mysql
+    networks:
+      - net
+    depends_on:
+      - db
   db:
     container_name: cassidy_mysql
     image: mysql:5.7
     volumes:
+      - /tmp/slack_bot/mysqld:/var/run/mysqld
       - db_data:/var/lib/mysql
     restart: always
     ports:
       - '3306:3306'
     env_file:
       - ./.env
+    networks:
+      - net
 volumes:
   db_data:
+
+networks:
+  net:
