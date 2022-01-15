@@ -16,10 +16,11 @@ services:
   db:
     container_name: courier_mysql
     image: mysql:5.7.32
+    command: mysqld
     volumes:
       - /tmp/slack_bot/mysqld:/var/run/mysqld
       - db_data:/var/lib/mysql
-      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ../DB/schema.sql:/docker-entrypoint-initdb.d/schema.sql
     restart: always
     ports:
       - '3306:3306'
