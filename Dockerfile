@@ -1,25 +1,18 @@
-FROM python:3.9-slim
+FROM public.ecr.aws/lambda/python:3.9
 
-WORKDIR /usr/src/app
+RUN yum install -y python-devel mysql-devel
+RUN yum install -y gcc-c++
+RUN yum install -y yum install unixODBC-devel
 
-RUN apt-get update && \
-  apt-get install -y default-libmysqlclient-dev && \
-  apt-get install -y gcc && \
-  apt-get install -y --reinstall build-essential && \
-  apt-get install -y unixodbc-dev
+WORKDIR "${LAMBDA_TASK_ROOT}"
 
-# optional - if not installed already, libraries will be installed on setup.py step
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+COPY ./ "${LAMBDA_TASK_ROOT}"/
+
 
 RUN pip install -U pip wheel setuptools egg
+RUN pip install  --no-cache-dir -r requirements.txt
 
-COPY . .
+RUN ls -la ${LAMBDA_TASK_ROOT}
 
-# install from setup.py
-RUN python setup.py bdist_wheel
-RUN pip install dist/*whl
-
-# test invocation based on README.md file
-CMD [ "python", "-c", "from courier import process" ]
+CMD [ "courier.main.main" ]
 

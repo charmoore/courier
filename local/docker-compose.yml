@@ -5,15 +5,19 @@ version: '3.8'
 #  chmod 777 /tmp/slack_bot/mysqld
 services:
   app:
-    image: courier:0.2
-    command: python /usr/src/app/courier/scripts/test_launch.py
+    image: courier:0.3-aws
+    command: courier.main.main
     volumes:
       - /tmp/slack_bot/mysqld:/var/run/mysqld
       - db_data:/var/lib/mysql
+    ports:
+      - 9000:8080
     networks:
       - net
     depends_on:
       - db
+    env_file:
+      - .env
   db:
     container_name: courier_mysql
     image: mysql:5.7.32
