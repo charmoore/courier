@@ -5,8 +5,8 @@ version: '3.8'
 #  chmod 777 /tmp/slack_bot/mysqld
 services:
   app:
-    image: courier:0.3-aws
-    command: courier.main.main
+    image: second_layer:0.1
+#    command: app.handler
     volumes:
       - /tmp/slack_bot/mysqld:/var/run/mysqld
       - db_data:/var/lib/mysql

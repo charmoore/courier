@@ -31,7 +31,8 @@ event = {
 
 
 import requests
+import json
 
 if __name__ == "__main__":
-    out = requests.post("http://localhost:9000/2015-03-31/functions/function/invocations", data=event)
+    out = requests.post("http://localhost:9000/2015-03-31/functions/function/invocations", data=json.dumps(event))
     print(out.text)
